@@ -1,13 +1,14 @@
 # coding: utf-8
 
 # import modules
+from functools import partial
 import numpy as np
 import tensorflow as tf
 from keras.optimizers import RMSprop
 from keras.callbacks import ReduceLROnPlateau, CSVLogger, EarlyStopping, ModelCheckpoint
 from keras.applications import ResNet50
 from keras.applications.resnet50 import preprocess_input
-from maeshori.nlp_utils import create_word_dict, curry
+from maeshori.nlp_utils import create_word_dict
 from maeshori.caps_utils import CocoGenerator
 from ShowAndTell import ShowAndTell
 
@@ -54,7 +55,7 @@ def deep_cnn_feature(img_data): # image (3-dim array) -> (feature_dim,)
 print("Loading MSCOCO")
 # training data
 coco_train = CocoGenerator('./COCO/', 'train2014',
-                           word_dict_creator=curry(create_word_dict, idx_start_from=1),
+                           word_dict_creator=partial(create_word_dict, idx_start_from=1),
                            caps_process=caps_preprocess, raw_img=False,
                            on_memory=True,
                            feature_extractor=deep_cnn_feature,
