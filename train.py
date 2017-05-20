@@ -29,14 +29,15 @@ img_rows = 224
 img_cols = 224
 num_classes = 1000
 
+
 # create resnet model instance
 print("Loading image model")
-with tf.device("/gpu:0"):
-    img_model = ResNet50(weights='imagenet',
-                     input_shape=(img_rows, img_cols, img_channels),
-                     include_top=False, # without softmax layer (set True for training)
-                     classes=num_classes)
-    img_model.trainable = False
+#with tf.device("/gpu:1"):
+img_model = ResNet50(weights='imagenet',
+                 input_shape=(img_rows, img_cols, img_channels),
+                 include_top=False, # without softmax layer (set True for training)
+                 classes=num_classes)
+img_model.trainable = False
 
 img_feature_dim = img_model.output_shape[-1]
 
@@ -72,16 +73,16 @@ coco_val = CocoGenerator('./COCO/', 'val2014',
 
 # load model
 print("Preparing image captioning model")
-with tf.device("/gpu:1"):
-    im2txt_model = ShowAndTell(coco_train.vocab_size, img_feature_dim=img_feature_dim, max_sentence_length=max_sentence_length)
-    im2txt_model.compile(loss="categorical_crossentropy", optimizer=RMSprop(lr=0.01), metrics=['acc'])
+#with tf.device("/gpu:0"):
+im2txt_model = ShowAndTell(coco_train.vocab_size, img_feature_dim=img_feature_dim, max_sentence_length=max_sentence_length)
+im2txt_model.compile(loss="categorical_crossentropy", optimizer=RMSprop(lr=0.01), metrics=['acc'])
 
 # callbacks
 lr_reducer = ReduceLROnPlateau(factor=np.sqrt(0.1), cooldown=0, patience=5, min_lr=0.5e-6)
 early_stopper = EarlyStopping(min_delta=0.001, patience=5)
 checkpoint = ModelCheckpoint(filepath="./results/model_weight/weights_{epoch:02d}-{val_loss:.2f}_.hdf5",
                              save_best_only=True)
-csv_logger = CSVLogger('show_and_tell.csv')
+csv_logger = CSVLogger('./results/logs/show_and_tell.csv')
 
 # fit
 print("Start Training")
@@ -89,10 +90,11 @@ im2txt_model.fit_generator(coco_train.generator(img_size=(img_rows, img_cols),
                                                 feature_extractor=deep_cnn_feature,
                                                 maxlen=max_sentence_length, padding='post'),
                            steps_per_epoch=coco_train.num_captions,
-                           epochs=20,
+                           epochs=100,
                            callbacks=[lr_reducer, early_stopper, csv_logger, checkpoint],
                            validation_data=coco_val.generator(img_size=(img_rows, img_cols),
                                                               feature_extractor=deep_cnn_feature,
                                                               maxlen=max_sentence_length, padding='post'),
                            validation_steps=coco_val.num_captions,
-                           max_q_size=100)
+                           max_q_size=1000,
+                           verbose=0) # supress progress bar
