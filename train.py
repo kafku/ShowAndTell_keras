@@ -11,8 +11,10 @@ from keras.applications import ResNet50
 from keras.applications.resnet50 import preprocess_input
 from maeshori.nlp_utils import create_word_dict
 from maeshori.caps_utils import CocoGenerator
+from maeshori.gen_utils import stack_batch
 from maeshori.callbacks import IftttMakerWebHook
 from ShowAndTell import ShowAndTell
+from multi_gpu import make_parallel
 
 # configs
 embedding_dim = 512
@@ -30,6 +32,7 @@ img_channels = 3
 img_rows = 224
 img_cols = 224
 num_classes = 1000
+num_gpu = 8
 
 
 # create resnet model instance
@@ -63,6 +66,7 @@ coco_train = CocoGenerator('./COCO/', 'train2014',
                            on_memory=True,
                            feature_extractor=deep_cnn_feature,
                            img_size=(img_rows, img_cols))
+
 # validation data
 coco_val = CocoGenerator('./COCO/', 'val2014',
                          word_dict=coco_train.word_dict,
@@ -75,8 +79,11 @@ coco_val = CocoGenerator('./COCO/', 'val2014',
 
 # load model
 print("Preparing image captioning model")
-#with tf.device("/gpu:0"):
-im2txt_model = ShowAndTell(coco_train.vocab_size, img_feature_dim=img_feature_dim, max_sentence_length=max_sentence_length)
+with tf.device("/cpu:0"):
+    im2txt_model = ShowAndTell(coco_train.vocab_size, img_feature_dim=img_feature_dim,
+                               max_sentence_length=max_sentence_length)
+
+im2txt_model = make_parallel(im2txt_model, num_gpu)
 im2txt_model.compile(loss="categorical_crossentropy", optimizer=RMSprop(lr=0.01), metrics=['acc'])
 
 # callbacks
@@ -90,15 +97,20 @@ ifttt_notify = IftttMakerWebHook(ifttt_url)
 
 # fit
 print("Start Training")
-im2txt_model.fit_generator(coco_train.generator(img_size=(img_rows, img_cols),
-                                                feature_extractor=deep_cnn_feature,
-                                                maxlen=max_sentence_length, padding='post'),
-                           steps_per_epoch=coco_train.num_captions,
+coco_train_gen = coco_train.generator(img_size=(img_rows, img_cols),
+                                      feature_extractor=deep_cnn_feature,
+                                      maxlen=max_sentence_length, padding='post')
+coco_train_gen = stack_batch(coco_train_gen, num_gpu)
+coco_val_gen = coco_val.generator(img_size=(img_rows, img_cols),
+                                  feature_extractor=deep_cnn_feature,
+                                  maxlen=max_sentence_length, padding='post')
+coco_val_gen = stack_batch(coco_val_gen, num_gpu)
+
+im2txt_model.fit_generator(coco_train_gen,
+                           steps_per_epoch=coco_train.num_captions // num_gpu,
                            epochs=100,
-                           callbacks=[lr_reducer, early_stopper, csv_logger, checkpoint, ifttt_notify],
-                           validation_data=coco_val.generator(img_size=(img_rows, img_cols),
-                                                              feature_extractor=deep_cnn_feature,
-                                                              maxlen=max_sentence_length, padding='post'),
-                           validation_steps=coco_val.num_captions,
+                           callbacks=[lr_reducer, early_stopper, csv_logger, checkpoint],
+                           validation_data=coco_val_gen,
+                           validation_steps=coco_val.num_captions // num_gpu,
                            max_q_size=1000,
                            verbose=0) # supress progress bar
