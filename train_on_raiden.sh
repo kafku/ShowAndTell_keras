@@ -4,7 +4,7 @@
 #$ -N train_ShowAndTell
 #$ -e raiden_error.log
 #$ -o raiden_print.log
-#$ -jc nvcr-cuda8_g1.168h
+#$ -jc nvcr-cuda8_g8.168h
 
 source ~/.bashrc
 python train.py
