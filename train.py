@@ -1,6 +1,7 @@
 # coding: utf-8
 
 # import modules
+import os
 from functools import partial
 import numpy as np
 import tensorflow as tf
@@ -10,6 +11,7 @@ from keras.applications import ResNet50
 from keras.applications.resnet50 import preprocess_input
 from maeshori.nlp_utils import create_word_dict
 from maeshori.caps_utils import CocoGenerator
+from maeshori.callbacks import IftttMakerWebHook
 from ShowAndTell import ShowAndTell
 
 # configs
@@ -83,6 +85,8 @@ early_stopper = EarlyStopping(min_delta=0.001, patience=5)
 checkpoint = ModelCheckpoint(filepath="./results/model_weight/weights_{epoch:02d}-{val_loss:.2f}_.hdf5",
                              save_best_only=True)
 csv_logger = CSVLogger('./results/logs/show_and_tell.csv')
+ifttt_url = 'https://maker.ifttt.com/trigger/{event}/with/key/' + os.environ['IFTTT_SECRET']
+ifttt_notify = IftttMakerWebHook(ifttt_url)
 
 # fit
 print("Start Training")
@@ -91,7 +95,7 @@ im2txt_model.fit_generator(coco_train.generator(img_size=(img_rows, img_cols),
                                                 maxlen=max_sentence_length, padding='post'),
                            steps_per_epoch=coco_train.num_captions,
                            epochs=100,
-                           callbacks=[lr_reducer, early_stopper, csv_logger, checkpoint],
+                           callbacks=[lr_reducer, early_stopper, csv_logger, checkpoint, ifttt_notify],
                            validation_data=coco_val.generator(img_size=(img_rows, img_cols),
                                                               feature_extractor=deep_cnn_feature,
                                                               maxlen=max_sentence_length, padding='post'),
