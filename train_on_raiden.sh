@@ -4,6 +4,8 @@
 #$ -N train_ShowAndTell
 #$ -e raiden_error.log
 #$ -o raiden_print.log
+#$ -adds l_hard h_vmem 100G
+#$ -adds l_hard m_mem_free 100G
 #$ -jc nvcr-cuda8_g8.168h
 
 source ~/.bashrc
