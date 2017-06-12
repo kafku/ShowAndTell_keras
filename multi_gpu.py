@@ -43,4 +43,12 @@ def make_parallel(model, gpu_count):
         for outputs in outputs_all:
             merged.append(concatenate(outputs, axis=0))
 
-        return Model(inputs=model.inputs, outputs=merged)
+        new_model = Model(inputs=model.inputs, outputs=merged)
+        funcType = type(model.save)
+
+        # monkeypatch the save to save just the underlying model
+        def new_save(self_, filepath, **kwargs):
+            model.save(filepath, **kwargs)
+
+        new_model.save = funcType(new_save, new_model)
+        return new_model
