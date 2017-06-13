@@ -92,7 +92,7 @@ early_stopper = EarlyStopping(min_delta=0.001, patience=5)
 checkpoint = ModelCheckpoint(filepath="./results/model_weight/weights_{epoch:02d}-{val_loss:.2f}_.hdf5",
                              save_best_only=True)
 csv_logger = CSVLogger('./results/logs/show_and_tell.csv')
-ifttt_url = 'https://maker.ifttt.com/trigger/{event}/with/key/' + os.environ['IFTTT_SECRET']
+ifttt_url = 'https://maker.ifttt.com/trigger/keras_callback/with/key/' + os.environ['IFTTT_SECRET']
 ifttt_notify = IftttMakerWebHook(ifttt_url)
 
 # fit
@@ -109,7 +109,7 @@ coco_val_gen = stack_batch(coco_val_gen, num_gpu)
 im2txt_model.fit_generator(coco_train_gen,
                            steps_per_epoch=coco_train.num_captions // num_gpu,
                            epochs=100,
-                           callbacks=[lr_reducer, early_stopper, csv_logger, checkpoint],
+                           callbacks=[lr_reducer, early_stopper, csv_logger, checkpoint, ifttt_notify],
                            validation_data=coco_val_gen,
                            validation_steps=coco_val.num_captions // num_gpu,
                            max_q_size=1000,
