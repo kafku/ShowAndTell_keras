@@ -84,17 +84,18 @@ if num_gpu == 1:
                                max_sentence_length=max_sentence_length)
 else:
     with tf.device('/cpu:0'):
-        im2txt_model = ShowAndTell(coco_train.vocab_size, img_feature_dim=img_feature_dim,
-                                   max_sentence_length=max_sentence_length)
+        #im2txt_model = ShowAndTell(coco_train.vocab_size, img_feature_dim=img_feature_dim,
+        #                           max_sentence_length=max_sentence_length)
+        im2txt_model = load_model('./results/model_weight/weights_rmsprop64_28-2.93_.hdf5', compile=False)
     im2txt_model = make_parallel(im2txt_model, num_gpu)
 im2txt_model.compile(loss="categorical_crossentropy", optimizer=RMSprop(), metrics=['acc'])
 
 # callbacks
-lr_reducer = ReduceLROnPlateau(factor=0.1, cooldown=0, patience=2, min_lr=0.5e-6)
-early_stopper = EarlyStopping(min_delta=0.001, patience=4)
-checkpoint = ModelCheckpoint(filepath="./results/model_weight/weights_{epoch:02d}-{val_loss:.2f}_.hdf5",
+lr_reducer = ReduceLROnPlateau(factor=0.5, cooldown=0, patience=5, min_lr=0.5e-6)
+early_stopper = EarlyStopping(min_delta=0.001, patience=100)
+checkpoint = ModelCheckpoint(filepath="./results/model_weight/weights_rmsprop128_2_{epoch:02d}-{val_loss:.2f}_.hdf5",
                              save_best_only=True)
-csv_logger = CSVLogger('./results/logs/show_and_tell.csv')
+csv_logger = CSVLogger('./results/logs/show_and_tell_rmsprop128.csv')
 ifttt_url = 'https://maker.ifttt.com/trigger/keras_callback/with/key/' + os.environ['IFTTT_SECRET']
 ifttt_notify = IftttMakerWebHook(ifttt_url, job_name='caption_lstm')
 
@@ -107,7 +108,7 @@ coco_val_gen = coco_val.generator(img_size=(img_rows, img_cols),
                                   feature_extractor=deep_cnn_feature,
                                   maxlen=max_sentence_length, padding='post')
 
-factor = 4
+factor = 64
 if num_gpu > 1:
     coco_train_gen = stack_batch(coco_train_gen, num_gpu * factor)
     coco_val_gen = stack_batch(coco_val_gen, num_gpu * factor)
@@ -117,6 +118,7 @@ im2txt_model.fit_generator(coco_train_gen,
                            epochs=100,
                            callbacks=[lr_reducer, early_stopper, csv_logger,
                                       checkpoint, ifttt_notify],
+                           #callbacks=[csv_logger, checkpoint, ifttt_notify],
                            validation_data=coco_val_gen,
                            validation_steps=coco_val.num_captions // (num_gpu * factor),
                            max_q_size=100)
