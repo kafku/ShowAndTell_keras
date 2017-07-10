@@ -5,7 +5,7 @@ from keras.preprocessing.sequence import pad_sequences
 def _update_candidate(row, beam_size=20, omit_oov=True):
     prev_score = row['score']
     prev_seq = row['seq']
-    next_token = row['token_score'].argsort()[::-1][:beam_size].astype(np.int32)
+    next_token = row['token_score'].argsort()[::-1][:beam_size].astype(np.int32) + 1 # +1 for padding
     updated_score = prev_score + row['token_score'][next_token]
     updated_seq = list(np.concatenate([np.tile(prev_seq, (beam_size, 1)),
                                        np.atleast_2d(next_token).T],
@@ -28,6 +28,7 @@ def generate_caption(image, model, beam_size=20,
     candidate = pd.DataFrame(first_tokens)
 
     # predict succeeding tokens
+    fixed_candidate = pd.DataFrame(columns=['score', 'seq', 'eos'])
     for _ in range(max_sentence_len - 1):
         batch = {img_key: np.tile(image, (beam_size, 1)), lang_key: padding(candidate['seq'])}
         token_score = np.log(model.predict_on_batch(batch))
@@ -35,5 +36,13 @@ def generate_caption(image, model, beam_size=20,
         candidate = pd.concat(
             [_update_candidate(row[1], beam_size=beam_size, omit_oov=omit_oov) for row in candidate.iterrows()])
         candidate = candidate.sort_values('score', ascending=False)[:beam_size].reset_index(drop=True)
+        
+        ## store seq with EOS
+        candidate['eos'] = [x[-1] == eos_idx for x in candidate['seq']]
+        fixed_candidate = pd.concat([fixed_candidate, candidate[candidate['eos'] == True]])
+        beam_size -= len(candidate[candidate['eos'] == True])
+        if beam_size == 0:
+            return fixed_candidate
+        candidate = candidate[candidate['eos'] == False]
 
-    return candidate
+    return pd.concat([fixed_candidate, candidate])
