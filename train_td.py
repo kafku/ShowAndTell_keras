@@ -30,7 +30,7 @@ print("max_sentence_length: %s"%max_sentence_length)
 
 
 # configuration
-num_gpu = 2
+num_gpu = 1 # FIXME: error when num_gpu > 1
 img_channels = 3
 img_rows = 299
 img_cols = 299
@@ -83,7 +83,7 @@ coco_val = CocoGenerator('./COCO/', 'val2014',
 print("Preparing image captioning model")
 if num_gpu == 1:
     im2txt_model = ShowAndTell(coco_train.vocab_size, img_feature_dim=img_feature_dim,
-                               max_sentence_length=max_sentence_length, time_distributed=False)
+                               max_sentence_length=max_sentence_length, time_distributed=True)
 else:
     with tf.device('/cpu:0'):
         im2txt_model = ShowAndTell(coco_train.vocab_size, img_feature_dim=img_feature_dim,
@@ -95,9 +95,9 @@ im2txt_model.compile(loss="sparse_categorical_crossentropy", optimizer=Adam(), m
 # callbacks
 lr_reducer = ReduceLROnPlateau(factor=0.5, cooldown=5, patience=5, min_lr=0.5e-6)
 early_stopper = EarlyStopping(min_delta=0.001, patience=100)
-checkpoint = ModelCheckpoint(filepath="./results/model_weight/weights_rmsprop64_inceptionv3_td_{epoch:02d}-{val_loss:.2f}_.hdf5",
+checkpoint = ModelCheckpoint(filepath="./results/model_weight/weights_adam64_inceptionv3_td_{epoch:02d}-{val_loss:.2f}_.hdf5",
                              save_best_only=True)
-csv_logger = CSVLogger('./results/logs/show_and_tell_rmsprop64_inceptionv3_td.csv')
+csv_logger = CSVLogger('./results/logs/show_and_tell_adam64_inceptionv3_td.csv')
 ifttt_url = 'https://maker.ifttt.com/trigger/keras_callback/with/key/' + os.environ['IFTTT_SECRET']
 ifttt_notify = IftttMakerWebHook(ifttt_url, job_name='caption_lstm_td')
 
@@ -112,10 +112,9 @@ coco_val_gen = coco_val.generator(img_size=(img_rows, img_cols),
                                   format_split=False, onehot_y=False,
                                   maxlen=max_sentence_length, padding='post')
 
-factor = 32
-if num_gpu > 1:
-    coco_train_gen = stack_batch(coco_train_gen, num_gpu * factor)
-    coco_val_gen = stack_batch(coco_val_gen, num_gpu * factor)
+factor = 64
+coco_train_gen = stack_batch(coco_train_gen, num_gpu * factor)
+coco_val_gen = stack_batch(coco_val_gen, num_gpu * factor)
 
 im2txt_model.fit_generator(coco_train_gen,
                            steps_per_epoch=coco_train.num_captions // (num_gpu * factor),
