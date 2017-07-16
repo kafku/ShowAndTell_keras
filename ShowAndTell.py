@@ -1,7 +1,7 @@
 # coding: utf-8
 
 from keras.models import Model
-from keras.layers import Input, Dense, Dropout, Activation, LSTM, Embedding, Masking, Reshape
+from keras.layers import Input, Dense, Dropout, LSTM, Embedding, Masking, Reshape
 from keras.layers.wrappers import TimeDistributed
 from keras.layers.merge import concatenate
 
@@ -11,6 +11,7 @@ def ShowAndTell(vocab_size,
                 embedding_dim=300,
                 lstm_units=200,
                 max_sentence_length=30,
+                stack_lstm=1,
                 time_distributed=False):
     """
     Args:
@@ -51,9 +52,15 @@ def ShowAndTell(vocab_size,
                             name="l_embed_1")(lang_input) # +1 for padding
 
     model_output = concatenate([img_output, lang_output], axis=1, name="concat_1")
+    for i in range(stack_lstm - 1):
+        model_output = LSTM(lstm_units, recurrent_dropout=0.2,
+                             dropout=0.2, return_sequences=True,
+                             implementation=2,
+                             name="c_lstm_%d"%(i + 1))(model_output)
     model_output = LSTM(lstm_units, recurrent_dropout=0.2,
                         dropout=0.2, return_sequences=time_distributed,
-                        name="c_lstm_2")(model_output)
+                        implementation=2,
+                        name="c_lstm_last")(model_output)
     model_output = Dropout(0.2, name="c_drop_3")(model_output)
 
     if time_distributed:
