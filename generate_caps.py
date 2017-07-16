@@ -19,24 +19,30 @@ def generate_caption(image, model, beam_size=20,
     """
     """
     padding = lambda x: pad_sequences(x, maxlen=max_sentence_len, padding='post')
-    
+
     # predict first token
     batch = {img_key: np.atleast_2d(image), lang_key: padding(np.atleast_2d(bos_idx))}
-    token_score = np.log(model.predict_on_batch(batch))
+    if len(model.output_shape) == 3:
+        token_score = np.log(model.predict_on_batch(batch)[:,1,:])
+    else:
+        token_score = np.log(model.predict_on_batch(batch))
     first_tokens = {'seq': [[bos_idx, token + 1] for token in token_score[0].argsort()[::-1][:beam_size].astype(np.int32)],
                     'score': np.sort(token_score[0])[::-1][:beam_size]}
     candidate = pd.DataFrame(first_tokens)
 
     # predict succeeding tokens
     fixed_candidate = pd.DataFrame(columns=['score', 'seq', 'eos'])
-    for _ in range(max_sentence_len - 1):
+    for i in range(2, max_sentence_len):
         batch = {img_key: np.tile(image, (beam_size, 1)), lang_key: padding(candidate['seq'])}
-        token_score = np.log(model.predict_on_batch(batch))
+        if len(model.output_shape) == 3:
+            token_score = np.log(model.predict_on_batch(batch)[:,i,:])
+        else:
+            token_score = np.log(model.predict_on_batch(batch))
         candidate['token_score'] = list(token_score)
         candidate = pd.concat(
             [_update_candidate(row[1], beam_size=beam_size, omit_oov=omit_oov) for row in candidate.iterrows()])
         candidate = candidate.sort_values('score', ascending=False)[:beam_size].reset_index(drop=True)
-        
+
         ## store seq with EOS
         candidate['eos'] = [x[-1] == eos_idx for x in candidate['seq']]
         fixed_candidate = pd.concat([fixed_candidate, candidate[candidate['eos'] == True]])
