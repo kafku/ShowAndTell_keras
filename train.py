@@ -83,10 +83,12 @@ coco_val = CocoGenerator('./COCO/', 'val2014',
 print("Preparing image captioning model")
 if num_gpu == 1:
     im2txt_model = ShowAndTell(coco_train.vocab_size, img_feature_dim=img_feature_dim,
+                               units=lstm_units,
                                max_sentence_length=max_sentence_length)
 else:
     with tf.device('/cpu:0'):
         im2txt_model = ShowAndTell(coco_train.vocab_size, img_feature_dim=img_feature_dim,
+                                   units=lstm_units,
                                    max_sentence_length=max_sentence_length)
         #im2txt_model = load_model('./results/model_weight/weights_rmsprop64_28-2.93_.hdf5', compile=False)
     im2txt_model = make_parallel(im2txt_model, num_gpu)
