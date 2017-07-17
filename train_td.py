@@ -87,6 +87,7 @@ coco_val = CocoGenerator('./COCO/', 'val2014',
 print("Preparing image captioning model")
 if num_gpu == 1:
     im2txt_model = ShowAndTell(coco_train.vocab_size, img_feature_dim=img_feature_dim,
+                               embedding_dim=embedding_dim,
                                units=lstm_units,
                                max_sentence_length=max_sentence_length,
                                time_distributed=True,
@@ -95,6 +96,7 @@ if num_gpu == 1:
 else:
     with tf.device('/cpu:0'):
         im2txt_model = ShowAndTell(coco_train.vocab_size, img_feature_dim=img_feature_dim,
+                                   embedding_dim=embedding_dim,
                                    units=lstm_units,
                                    max_sentence_length=max_sentence_length,
                                    time_distributed=True,
