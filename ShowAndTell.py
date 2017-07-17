@@ -9,10 +9,11 @@ def ShowAndTell(vocab_size,
                 img_model=None,
                 img_feature_dim=None,
                 embedding_dim=300,
-                lstm_units=200,
+                units=200,
                 max_sentence_length=30,
                 stack_lstm=1,
-                time_distributed=False):
+                time_distributed=False,
+                rnn_layer=LSTM):
     """
     Args:
         vocab_size: vocaburary size
@@ -36,10 +37,12 @@ def ShowAndTell(vocab_size,
         img_input = Input(shape=img_model.input_shape[1:], name="img_input")
         img_output = img_model(img_input)
         img_output = Dense(embedding_dim, name="i_dense_1")(img_input)
+        img_output = Dropout(0.5)(img_output)
     else:
         # image input layer
         img_input = Input(shape=(img_feature_dim,), name="img_input")
         img_output = Dense(embedding_dim, name="i_dense_1")(img_input)
+        img_output = Dropout(0.5)(img_output)
 
     img_output = Reshape((-1, embedding_dim), name="i_reshape_2")(img_output)
     img_output = Masking(mask_value=0.0,
@@ -53,15 +56,15 @@ def ShowAndTell(vocab_size,
 
     model_output = concatenate([img_output, lang_output], axis=1, name="concat_1")
     for i in range(stack_lstm - 1):
-        model_output = LSTM(lstm_units, recurrent_dropout=0.2,
-                             dropout=0.2, return_sequences=True,
+        model_output = rnn_layer(units, recurrent_dropout=0.5,
+                                 dropout=0.5, return_sequences=True,
+                                 implementation=2,
+                                 name="c_rnn_%d"%(i + 1))(model_output)
+    model_output = rnn_layer(units, recurrent_dropout=0.5,
+                             dropout=0.5, return_sequences=time_distributed,
                              implementation=2,
-                             name="c_lstm_%d"%(i + 1))(model_output)
-    model_output = LSTM(lstm_units, recurrent_dropout=0.2,
-                        dropout=0.2, return_sequences=time_distributed,
-                        implementation=2,
-                        name="c_lstm_last")(model_output)
-    model_output = Dropout(0.2, name="c_drop_3")(model_output)
+                             name="c_rnn_last")(model_output)
+    model_output = Dropout(0.5, name="c_drop_3")(model_output)
 
     if time_distributed:
         model_output = TimeDistributed(Dense(vocab_size, activation="softmax",
