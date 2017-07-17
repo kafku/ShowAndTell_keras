@@ -56,15 +56,15 @@ def ShowAndTell(vocab_size,
 
     model_output = concatenate([img_output, lang_output], axis=1, name="concat_1")
     for i in range(stack_lstm - 1):
-        model_output = rnn_layer(units, recurrent_dropout=0.5,
-                                 dropout=0.5, return_sequences=True,
+        model_output = rnn_layer(units, recurrent_dropout=0.2,
+                                 dropout=0.2, return_sequences=True,
                                  implementation=2,
                                  name="c_rnn_%d"%(i + 1))(model_output)
-    model_output = rnn_layer(units, recurrent_dropout=0.5,
-                             dropout=0.5, return_sequences=time_distributed,
+    model_output = rnn_layer(units, recurrent_dropout=0.2,
+                             dropout=0.2, return_sequences=time_distributed,
                              implementation=2,
                              name="c_rnn_last")(model_output)
-    model_output = Dropout(0.5, name="c_drop_3")(model_output)
+    model_output = Dropout(0.2, name="c_drop_3")(model_output)
 
     if time_distributed:
         model_output = TimeDistributed(Dense(vocab_size, activation="softmax",
