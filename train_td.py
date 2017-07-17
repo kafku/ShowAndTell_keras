@@ -21,12 +21,16 @@ from ShowAndTell import ShowAndTell
 # configs
 embedding_dim = 512
 lstm_units = 512
+num_stack_lstm = 1
 max_sentence_length = 64
+batch_size = 64
 
 print("### parameters")
-print("embedding_dim: %s"%embedding_dim)
-print("lstm_units: %s"%lstm_units)
-print("max_sentence_length: %s"%max_sentence_length)
+print("embedding_dim: %d"%embedding_dim)
+print("lstm_units: %d"%lstm_units)
+print("stack RNN: %d"%num_stack_lstm)
+print("max_sentence_length: %d"%max_sentence_length)
+print("batch size: %d"%batch_size)
 
 
 # configuration
@@ -83,11 +87,18 @@ coco_val = CocoGenerator('./COCO/', 'val2014',
 print("Preparing image captioning model")
 if num_gpu == 1:
     im2txt_model = ShowAndTell(coco_train.vocab_size, img_feature_dim=img_feature_dim,
-                               max_sentence_length=max_sentence_length, time_distributed=True)
+                               units=lstm_units,
+                               max_sentence_length=max_sentence_length,
+                               time_distributed=True,
+                               stack_lstm=num_stack_lstm)
+    #im2txt_model = load_model('./results/model_weight/weights_adam64_inceptionv3_td_91-2.21_.hdf5')
 else:
     with tf.device('/cpu:0'):
         im2txt_model = ShowAndTell(coco_train.vocab_size, img_feature_dim=img_feature_dim,
-                                   max_sentence_length=max_sentence_length)
+                                   units=lstm_units,
+                                   max_sentence_length=max_sentence_length,
+                                   time_distributed=True,
+                                   stack_lstm=num_stack_lstm)
         #im2txt_model = load_model('./results/model_weight/weights_rmsprop64_28-2.93_.hdf5', compile=False)
     im2txt_model = make_parallel(im2txt_model, num_gpu)
 im2txt_model.compile(loss="sparse_categorical_crossentropy", optimizer=Adam(), metrics=['acc'])
@@ -95,9 +106,10 @@ im2txt_model.compile(loss="sparse_categorical_crossentropy", optimizer=Adam(), m
 # callbacks
 lr_reducer = ReduceLROnPlateau(factor=0.5, cooldown=5, patience=5, min_lr=0.5e-6)
 early_stopper = EarlyStopping(min_delta=0.001, patience=100)
-checkpoint = ModelCheckpoint(filepath="./results/model_weight/weights_adam64_inceptionv3_td_{epoch:02d}-{val_loss:.2f}_.hdf5",
-                             save_best_only=True)
-csv_logger = CSVLogger('./results/logs/show_and_tell_adam64_inceptionv3_td.csv')
+checkpoint = ModelCheckpoint(
+    filepath="./results/model_weight/weights_em%d_lu%d_bs%d_sl%d_{epoch:02d}-{val_loss:.2f}_.hdf5"%(embedding_dim, lstm_units, batch_size, num_stack_lstm),
+    save_best_only=True)
+csv_logger = CSVLogger('./results/logs/log_em%d_lu%d_bs%d_sl%d_.csv'%(embedding_dim, lstm_units, batch_size, num_stack_lstm))
 ifttt_url = 'https://maker.ifttt.com/trigger/keras_callback/with/key/' + os.environ['IFTTT_SECRET']
 ifttt_notify = IftttMakerWebHook(ifttt_url, job_name='caption_lstm_td')
 
@@ -112,16 +124,15 @@ coco_val_gen = coco_val.generator(img_size=(img_rows, img_cols),
                                   format_split=False, onehot_y=False,
                                   maxlen=max_sentence_length, padding='post')
 
-factor = 64
-coco_train_gen = stack_batch(coco_train_gen, num_gpu * factor)
-coco_val_gen = stack_batch(coco_val_gen, num_gpu * factor)
+coco_train_gen = stack_batch(coco_train_gen, batch_size)
+coco_val_gen = stack_batch(coco_val_gen, batch_size)
 
 im2txt_model.fit_generator(coco_train_gen,
-                           steps_per_epoch=coco_train.num_captions // (num_gpu * factor),
+                           steps_per_epoch=coco_train.num_captions // batch_size,
                            epochs=100,
                            callbacks=[lr_reducer, early_stopper, csv_logger,
                                       checkpoint, ifttt_notify],
                            #callbacks=[csv_logger, checkpoint, ifttt_notify],
                            validation_data=coco_val_gen,
-                           validation_steps=coco_val.num_captions // (num_gpu * factor),
+                           validation_steps=coco_val.num_captions // batch_size,
                            max_q_size=100)
