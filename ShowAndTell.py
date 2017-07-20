@@ -36,13 +36,11 @@ def ShowAndTell(vocab_size,
         #  image model
         img_input = Input(shape=img_model.input_shape[1:], name="img_input")
         img_output = img_model(img_input)
-        img_output = Dense(embedding_dim, name="i_dense_1")(img_input)
-        img_output = Dropout(0.5)(img_output)
     else:
         # image input layer
         img_input = Input(shape=(img_feature_dim,), name="img_input")
-        img_output = Dense(embedding_dim, name="i_dense_1")(img_input)
-        img_output = Dropout(0.5)(img_output)
+    img_output = Dense(embedding_dim, name="i_dense_1")(img_input)
+    img_output = Dropout(0.2)(img_output)
 
     img_output = Reshape((-1, embedding_dim), name="i_reshape_2")(img_output)
     img_output = Masking(mask_value=0.0,
@@ -60,6 +58,7 @@ def ShowAndTell(vocab_size,
                                  dropout=0.2, return_sequences=True,
                                  implementation=2,
                                  name="c_rnn_%d"%(i + 1))(model_output)
+        model_output = Dropout(0.2)(model_output)
     model_output = rnn_layer(units, recurrent_dropout=0.2,
                              dropout=0.2, return_sequences=time_distributed,
                              implementation=2,
