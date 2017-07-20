@@ -1,2 +1,4 @@
 ./pretrained/COCO/weights_em512_lu512_bs64_sl1_drop_78-2.22_.hdf5 filter=lfs diff=lfs merge=lfs -text
 ./pretrained/COCO/log_em512_lu512_bs64_sl1_drop_.csv filter=lfs diff=lfs merge=lfs -text
+*.hdf5 filter=lfs diff=lfs merge=lfs -text
+*.csv filter=lfs diff=lfs merge=lfs -text
