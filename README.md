@@ -4,7 +4,6 @@
 
 ## Prerequisites
 
-
 ### Python Environment
 
 - Anaconda 3
@@ -17,13 +16,19 @@
 ### Dataset
 
 The script `train_td.py` uses [MSCOCO](http://mscoco.org) dataset placed at `./COCO` as follows.
+
 ```bash
 ./COCO
 ├── annotations
 └── images
 ```
 
+### Other tools
+
+- git-lfs
+
 ## Usage
+
 ```bash
 # for training
 python train_td.py
