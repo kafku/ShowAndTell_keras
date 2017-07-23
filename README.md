@@ -1,6 +1,5 @@
 # Image captioning model implemetned using Keras
 
----
 
 ## Prerequisites
 
@@ -20,7 +19,20 @@ The script `train_td.py` uses [MSCOCO](http://mscoco.org) dataset placed at `./C
 ```bash
 ./COCO
 ├── annotations
+│   ├── captions_train2014.json
+│   ├── captions_val2014.json
+│   ├── image_info_test-dev2015.json
+│   ├── image_info_test2014.json
+│   ├── image_info_test2015.json
+│   ├── instances_train2014.json
+│   ├── instances_val2014.json
+│   ├── person_keypoints_train2014.json
+│   └── person_keypoints_val2014.json
 └── images
+    ├── test2014
+    ├── test2015
+    ├── train2014
+    └── val2014
 ```
 
 ### Other tools
